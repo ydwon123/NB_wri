@@ -1,20 +1,8 @@
 from typing import List, Tuple
 
 
-def build_system_prompt(language: str = "ko") -> str:
-    if language.lower().startswith("ko"):
-        return (
-            "너는 전문 블로그 에디터이자 SEO 컨설턴트야. "
-            "독자가 쉽게 이해하도록 구조화하고, 검색 친화적인 제목과 소제목을 사용해. "
-            "근거는 첨부자료에서만 가져오고, 추측은 최소화해. 필요하면 명확히 가정이라고 표시해."
-        )
-    return (
-        "You are a professional blog editor and SEO consultant. "
-        "Structure content for clarity, use search-friendly headings, and ground claims in attachments."
-    )
-
-
 def format_attachments(attachments: List[Tuple[str, str]], max_chars_per_doc: int = 12000) -> str:
+    """첨부자료를 마크다운 블록으로 포맷팅"""
     blocks = []
     for idx, (path, content) in enumerate(attachments, start=1):
         snippet = content if len(content) <= max_chars_per_doc else content[:max_chars_per_doc] + "\n...[truncated]"
@@ -22,87 +10,89 @@ def format_attachments(attachments: List[Tuple[str, str]], max_chars_per_doc: in
     return "\n\n".join(blocks)
 
 
-def build_user_prompt(purpose: str, attachments_block: str, language: str = "ko") -> str:
-    if language.lower().startswith("ko"):
-        return f"""
-아래 [첨부자료]를 바탕으로, 다음 [목적]에 정확히 부합하는 블로그 초안을 작성해줘.
+def build_meta_prompt(attachments_block: str) -> list[dict[str, str]]:
+    """Step 1: 첨부문서의 문체를 분석하여 재현 가능한 스타일 가이드 생성"""
+    system_prompt = """당신은 블로그 글의 문체를 정밀하게 분석하고, 동일한 스타일로 글을 작성할 수 있는 스타일 가이드를 생성하는 전문가입니다.
 
-[목적]
-- {purpose}
+제공된 블로그 글들을 분석하여 다음 요소들을 파악하고, 구체적인 작성 가이드라인을 만들어주세요:
 
-[요구사항]
-- 글머리: 한 줄 요약과 훅(hook)
-- 구조: H2/H3 소제목으로 명확히 구분, 불릿/번호 목록 적극 활용
-- 톤앤매너: 전문가적이지만 친근하고 실용적으로
-- 범위: 첨부자료 기반으로 충실히, 근거 없는 확장은 금지
-- 인용: 필요한 곳에 출처(파일명/섹션) 표기
-- SEO: 메타 설명(150자 내외), 핵심 키워드 5~10개, 슬러그 제안
-- 산출물: Markdown (.md) 포맷, 코드/표는 Markdown 규칙 준수
+1. 문장 구조 및 리듬
+   - 문장 길이 패턴 (단문/중문/장문 비율)
+   - 문단 구성 방식
+   - 줄바꿈 및 여백 활용
+   - 이모티콘 사용 빈도 및 위치
 
-[출력 템플릿]
-# 제목
+2. 어조 및 톤
+   - 존댓말/반말 사용 패턴
+   - 친근감 표현 방식
+   - 감정 표현 강도
+   - 독자와의 거리감
 
-> 요약 한 줄 (120자 내외)
+3. 어휘 및 표현
+   - 자주 사용하는 어미 (예: ~해요, ~더라고요, ~네요)
+   - 특정 표현 패턴
+   - 강조 표현 방식
+   - 구어체 vs 문어체 비율
 
-## 개요
-- 대상 독자·문제 정의·핵심 메시지
+4. 콘텐츠 구성
+   - 정보 전달 순서
+   - 섹션 구분 방식
+   - 사진/정보 설명 방식
 
-## 본문 섹션 1
-내용…
+5. 개성 있는 특징
+   - 반복되는 표현 습관
+   - 독특한 문체적 특징
 
-## 본문 섹션 2
-내용…
+다음 형식으로 스타일 가이드를 작성해주세요:
 
-## 결론
-- 핵심 요점 3~5개 불릿
-- 다음 행동 제안(CTA)
+## 문체 핵심 특징
+[3-5개 bullet points]
 
----
-SEO 메타 설명: ...
-핵심 키워드: ...
-추천 슬러그: ...
+## 어조 및 톤
+[구체적 설명]
+
+## 문장 구조
+[문장 길이, 문단 구성, 줄바꿈 규칙]
+
+## 표현 스타일
+- 자주 사용할 어미: [예시]
+- 이모티콘 사용: [빈도 및 종류]
+- 강조 표현: [방식]
+
+## 콘텐츠 구조
+[도입부, 본문, 마무리 작성법]
+
+## 피해야 할 표현
+[이 블로거가 사용하지 않는 표현들]"""
+
+    return [
+        {
+            "role": "system",
+            "content": system_prompt
+        },
+        {
+            "role": "user",
+            "content": f"다음 블로그 글들을 분석하여 이 블로거만의 스타일 가이드를 만들어주세요.\n\n{attachments_block}"
+        }
+    ]
+
+
+def build_final_prompt(style_prompt: str, keyword: str, keyword_repeat: int, attachments_block: str, writing_guide: str | None = None) -> list[dict[str, str]]:
+    """Step 2: 최종 블로그 생성 프롬프트"""
+
+    # 글쓰기 가이드 섹션 (필수)
+    guide_section = ""
+    if writing_guide:
+        guide_section = f"\n[주제 및 작성 가이드]\n{writing_guide}\n"
+
+    user_content = f"""[작성 스타일]
+{style_prompt}
+{guide_section}
+위 주제와 가이드에 맞춰 블로그 글을 작성해줘.
+["{keyword}"]는 {keyword_repeat}회 반복해줘.
+첨부문서 형태소를 분석해서 가장 많이 사용된 단어 10개를 선택해서 적절하게 사용해.
 
 [첨부자료]
 {attachments_block}
-""".strip()
-    else:
-        return f"""
-Using the [Attachments] below, write a blog draft tailored to the following [Purpose].
-
-[Purpose]
-- {purpose}
-
-[Requirements]
-- Hooked opening line; clear H2/H3 structure
-- Professional yet friendly tone; practical and concise
-- Stay grounded in attachments; mark assumptions explicitly
-- SEO section: meta description, 5–10 keywords, slug suggestion
-- Output Markdown (.md)
-
-[Output Template]
-# Title
-
-> One-line summary
-
-## Overview
-- Audience, problem, key message
-
-## Section 1
-...
-
-## Section 2
-...
-
-## Conclusion
-- 3–5 key bullets
-- CTA
-
----
-SEO Meta: ...
-Keywords: ...
-Slug: ...
-
-[Attachments]
-{attachments_block}
-""".strip()
-
+"""
+    return [{"role": "user", "content": user_content}]

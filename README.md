@@ -39,40 +39,57 @@ python run_gui.py
 ```bash
 # 디렉토리 전체 + 개별 파일/패턴을 함께 첨부 가능
 python -m src.main \
-  --provider openai \
-  --purpose "B2B 마케팅 블로그용: 데이터 기반 사례 중심, 실무 팁 강조" \
+  --provider anthropic \
+  --topic "블로그 맛집" \
+  --keyword "신발원 포장" \
+  --keyword-repeat 5 \
   --input-dir data/refs \
   notes/*.md slides/summary.txt \
   --out output/blog_draft.md
 
-# Claude 사용 예시
+# Claude 사용 예시 (간단)
 python -m src.main \
   --provider anthropic \
-  -p "초보 개발자 대상: 친절한 튜토리얼 톤" \
+  -t "맛집 리뷰" \
+  -k "공진단" \
   -d 자료모음 \
   README.md \
   -o output/초안.md
 
 # 또는 간단 실행
-python run_cli.py --provider openai -p "목적" README.md
+python run_cli.py --provider anthropic -t "주제" -k "키워드" README.md
 ```
 
 옵션
-- `--provider` `openai|anthropic`
+- `--provider` `openai|anthropic` (필수)
 - `--model` 모델명(선택)
-- `--purpose`/`-p` 글의 목적·타깃·톤 등 상세 지시
+- `--topic`/`-t` 주제 (필수)
+- `--keyword`/`-k` 키워드 (필수)
+- `--keyword-repeat` 키워드 반복 횟수 (기본값: 5)
 - `--input-dir`/`-d` 첨부 디렉토리(재귀)
 - `files` 공백으로 구분한 파일 경로 또는 glob 패턴
-- `--out`/`-o` 출력 파일 경로 (기본: `output/blog_draft.md`)
+- `--out`/`-o` 출력 파일 경로 (기본: `blog_draft.txt`)
 - `--lang` 출력 언어 (기본: `ko`)
 - `--max-tokens` (기본: 1600)
 - `--temperature` (기본: 0.7)
 
-### 동작 방식
-- 텍스트로 판별되는 파일만 읽어들입니다(`.txt,.md,.html,.json,.yaml` 등).
-- 각 파일은 길이 제한에 맞춰 1개 청크만 사용합니다(토큰 초과 방지용).
-- 첨부본은 프롬프트의 [첨부자료] 섹션에 파일명과 함께 포함됩니다.
-- 출력은 Markdown으로 저장됩니다.
+### 동작 방식 (2-Pass 워크플로우)
+
+이 도구는 **2단계 프롬프트 체인** 방식으로 동작합니다:
+
+**Step 1: 문체 분석 (메타프롬프트)**
+- 첨부문서의 문체, 어조, 구조를 분석하여 스타일 가이드 프롬프트를 생성합니다
+- 생성된 프롬프트는 `{출력파일명}_step1_style_prompt.txt` 파일로 저장됩니다 (디버깅용)
+
+**Step 2: 블로그 작성**
+- Step 1에서 생성된 문체 프롬프트와 사용자가 입력한 주제/키워드를 결합하여 최종 블로그를 작성합니다
+- 키워드는 지정된 횟수만큼 반복되며, 첨부문서의 형태소 분석을 통해 자주 사용된 단어 10개를 자동으로 선택하여 활용합니다
+- 최종 결과는 지정된 출력 파일 경로에 저장됩니다
+
+**기타 특징:**
+- 텍스트로 판별되는 파일만 읽어들입니다(`.txt,.md,.html,.json,.yaml` 등)
+- 각 파일은 길이 제한에 맞춰 1개 청크만 사용합니다(토큰 초과 방지용)
+- 첨부본은 프롬프트의 [첨부자료] 섹션에 파일명과 함께 포함됩니다
 
 ### 문제 해결
 - 오류: `ImportError: attempted relative import with no known parent package`

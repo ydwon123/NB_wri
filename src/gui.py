@@ -42,7 +42,7 @@ class BlogDraftGUI(tk.Tk):
 
     # UI
     def _build_widgets(self) -> None:
-        # Input Fields: Keyword, Topic, Word Count
+        # Input Fields: Keyword, Keyword Repeat, Word Count (in one row)
         top = ttk.Frame(self)
         top.pack(fill=tk.X, padx=10, pady=8)
 
@@ -50,16 +50,26 @@ class BlogDraftGUI(tk.Tk):
         self.keyword = ttk.Entry(top, width=30)
         self.keyword.grid(row=0, column=1, sticky=tk.W)
 
-        ttk.Label(top, text="주제").grid(row=0, column=2, sticky=tk.W, padx=(16, 6))
-        self.topic = ttk.Entry(top, width=40)
-        self.topic.grid(row=0, column=3, sticky=tk.W+tk.E)
+        ttk.Label(top, text="키워드 반복").grid(row=0, column=2, sticky=tk.W, padx=(16, 6))
+        self.keyword_repeat = ttk.Entry(top, width=12)
+        self.keyword_repeat.insert(0, "5")
+        self.keyword_repeat.grid(row=0, column=3, sticky=tk.W)
 
-        ttk.Label(top, text="글자수").grid(row=1, column=0, sticky=tk.W, pady=(8, 0))
+        ttk.Label(top, text="글자수").grid(row=0, column=4, sticky=tk.W, padx=(16, 6))
         self.word_count = ttk.Entry(top, width=12)
         self.word_count.insert(0, "1000")
-        self.word_count.grid(row=1, column=1, sticky=tk.W, pady=(8, 0))
+        self.word_count.grid(row=0, column=5, sticky=tk.W)
 
-        top.columnconfigure(3, weight=1)
+        # Writing Guide (Required - replaces topic)
+        guide_fr = ttk.LabelFrame(self, text="주제 및 가이드")
+        guide_fr.pack(fill=tk.BOTH, expand=True, padx=10, pady=6)
+
+        guide_scroll = ttk.Scrollbar(guide_fr)
+        guide_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.writing_guide_text = tk.Text(guide_fr, height=10, yscrollcommand=guide_scroll.set)
+        self.writing_guide_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+        guide_scroll.config(command=self.writing_guide_text.yview)
 
         # Attachments (Optional)
         attach_fr = ttk.LabelFrame(self, text="첨부자료 (선택사항 - 참고 문서가 있을 경우)")
@@ -178,53 +188,25 @@ class BlogDraftGUI(tk.Tk):
 
         # User inputs
         keyword = self.keyword.get().strip()
-        topic = self.topic.get().strip()
         word_count = self._safe_int(self.word_count.get(), 1000)
+        keyword_repeat = self._safe_int(self.keyword_repeat.get(), 5)
         out_path = self.out_path.get().strip()
+        writing_guide = self.writing_guide_text.get("1.0", tk.END).strip()
 
-        # Build purpose from keyword, topic, word count
-        if not keyword and not topic:
-            messagebox.showwarning("입력 필요", "키워드 또는 주제를 입력해주세요.")
+        # Validation
+        if not writing_guide:
+            messagebox.showwarning("입력 필요", "주제 및 가이드를 입력해주세요.")
             return
 
-        # Create purpose string with style guide
-        purpose_parts = []
-        if keyword:
-            purpose_parts.append(f'"{keyword}" 키워드로')
-        if topic:
-            purpose_parts.append(f'{topic}에 대한')
-        purpose_parts.append(f'블로그 글 {word_count}자 작성해줘.')
-
-        # Add style guide
-        style_guide = '''
-**절대 하지 말아야 할 것:**
-- 불릿 포인트(-), 번호 리스트(1. 2. 3.) 사용 금지
-- 표, 체크박스 사용 금지
-- H2, H3 같은 헤더 표시 금지
-- SEO 메타 설명, 핵심 키워드, 추천 슬러그 같은 기술적 요소 전부 제거
-- "다음과 같습니다", "아래를 참고하세요" 같은 딱딱한 표현 금지
-
-**작성 방식:**
-- 모든 내용을 자연스러운 문단으로 풀어서 설명
-- "첫 번째로", "두 번째로" 대신 "우선", "그리고", "또한" 같은 자연스러운 연결어 사용
-- 여러 가지를 설명할 때도 리스트 없이 문장으로 이어서 작성
-
-예시:
-❌ 나쁜 예: "공진단이 필요한 분들은 다음과 같습니다:
-- 만성피로에 시달리는 직장인
-- 수험생"
-
-✅ 좋은 예: "공진단은 특히 만성피로에 시달리시는 직장인분들, 그리고 장시간 공부하느라 체력이 떨어진 수험생분들께 도움이 될 수 있어요."
-'''
-
-        purpose = ' '.join(purpose_parts) + style_guide
+        if not keyword:
+            messagebox.showwarning("입력 필요", "키워드를 입력해주세요.")
+            return
 
         if not out_path:
             messagebox.showwarning("출력 경로", "출력 파일 경로를 지정해주세요.")
             return
 
         self.status_var.set("생성 중… 잠시만 기다려주세요")
-        self._log("[단계] 첨부 스캔 시작")
         btn_state = {}
         for child in self.winfo_children():
             try:
@@ -242,9 +224,9 @@ class BlogDraftGUI(tk.Tk):
             try:
                 # Log user inputs
                 self._log(f"키워드: {keyword}")
-                self._log(f"주제: {topic}")
                 self._log(f"목표 글자수: {word_count}자")
-                self._log(f"생성된 프롬프트: {purpose}")
+                self._log(f"키워드 반복 횟수: {keyword_repeat}회")
+                self._log(f"주제 및 가이드: {writing_guide[:100]}..." if len(writing_guide) > 100 else f"주제 및 가이드: {writing_guide}")
 
                 # Expand directories already to file list; pass via patterns to run (works for explicit paths)
                 files = list(self.selected_files)
@@ -254,17 +236,14 @@ class BlogDraftGUI(tk.Tk):
                 for i, f in enumerate(files, 1):
                     self._log(f"  파일 {i}: {f}")
 
-                t1 = time.perf_counter()
-                self._log(f"[단계] 프롬프트 구성/호출 준비 (경과 {t1 - t0:.2f}s)")
-                self._log("[단계] API 호출 시작 (max_tokens=10000)")
-
                 # Convert empty model string to None
                 final_model = model if model else None
 
                 cli_run(
                     provider=provider,
                     model=final_model,
-                    purpose=purpose,
+                    keyword=keyword,
+                    keyword_repeat=keyword_repeat,
                     input_dir=None,
                     files=files,
                     out_path=out_path,
@@ -273,9 +252,10 @@ class BlogDraftGUI(tk.Tk):
                     temperature=temperature,
                     debug=False,
                     log_callback=self._log,  # GUI 로그로 직접 출력
+                    writing_guide=writing_guide,
                 )
                 t2 = time.perf_counter()
-                self._log(f"[단계] 완료 (총 {t2 - t0:.2f}s)")
+                self._log(f"[완료] 총 소요 시간: {t2 - t0:.2f}s")
                 self.status_var.set("완료")
                 messagebox.showinfo("완료", f"생성 완료: {out_path}")
             except Exception as e:
