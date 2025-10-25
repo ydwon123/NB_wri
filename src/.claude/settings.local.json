@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/33csn/Desktop/프로젝트/블로그 글 작성/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

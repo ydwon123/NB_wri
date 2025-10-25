@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python test_simple.py)",
+      "Bash(python test_gui_direct.py)",
+      "Bash(pip install python-docx)",
+      "Bash(python -m src.main --provider anthropic -p \"신발원 포장 키워드로 블로그 맛집 1000자 작성해줘\" \"C:\\Users\\33csn\\Desktop\\222\\카페드_신발원 포장_20251020_124527#1.docx\" -o test_docx_output.txt)",
+      "Bash(python -c \"import os; from src.util.file_loader import load_attachments; result = load_attachments(None, [r''C:\\Users\\33csn\\Desktop\\222\\카페드_신발원 포장_20251020_124527#1.docx'']); print(f''Loaded {len(result)} files''); print(f''Content length: {len(result[0][1]) if result else 0}'')\")",
+      "Bash(python -c \"import os; path = r''C:\\Users\\33csn\\Desktop\\222\\카페드_신발원 포장_20251020_124527#1.docx''; print(f''Exists: {os.path.exists(path)}''); print(f''Is file: {os.path.isfile(path)}''); from src.util.file_loader import is_text_file; print(f''Is text: {is_text_file(path)}'')\")",
+      "Bash(git init:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
